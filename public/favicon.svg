@@ -1,0 +1,20 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 32 32">
+  <!-- Outer Spartan Red Shield -->
+  <polygon points="16,1 29,4.8 26.5,23 16,31 5.5,23 3,4.8" fill="#D32F3A" />
+  
+  <!-- Crossed Spear and Sword forming an X mark -->
+  <!-- 1. Spear: shaft from bottom-left (7,25) to top-right, spearhead at (25,7) -->
+  <line x1="7" y1="25" x2="19.5" y2="12.5" stroke="#FFFFFF" stroke-width="2.2" stroke-linecap="round" />
+  <polygon points="26,6 19,10 22,13" fill="#FFFFFF" stroke="#FFFFFF" stroke-width="1" stroke-linejoin="round" />
+
+  <!-- 2. Sword: pointed blade from top-left (6,6) crossing center to bottom-right -->
+  <line x1="6" y1="6" x2="17" y2="17" stroke="#FFFFFF" stroke-width="2.2" stroke-linecap="round" />
+  <!-- Sword tip chevron -->
+  <path d="M6 9 L6 6 L9 6" fill="none" stroke="#FFFFFF" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" />
+  <!-- Sword crossguard (quillon) perpendicular to diagonal -->
+  <line x1="14" y1="20" x2="20" y2="14" stroke="#FFFFFF" stroke-width="3" stroke-linecap="round" />
+  <!-- Sword grip -->
+  <line x1="17" y1="17" x2="21.5" y2="21.5" stroke="#FFFFFF" stroke-width="2.2" stroke-linecap="round" />
+  <!-- Sword pommel -->
+  <circle cx="23" cy="23" r="1.8" fill="#FFFFFF" />
+</svg>

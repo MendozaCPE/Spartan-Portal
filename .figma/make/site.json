@@ -1,0 +1,14 @@
+{
+  "title": "Spartan Portal",
+  "icons": {
+    "icon": "/favicon.svg"
+  },
+  "description": "Helps BS Information Technology program chairs monitor academic results and teaching effectiveness, identify classes needing follow-up, and make informed resource and support decisions.",
+  "robots": {
+    "index": false
+  },
+  "accessibility": {
+    "addBypassLinks": false,
+    "ignoreReducedMotion": false
+  }
+}
