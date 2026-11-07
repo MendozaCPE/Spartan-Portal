@@ -67,6 +67,9 @@
 .alert-banner { min-height: 74px; padding: 14px 16px; display: flex; align-items: center; gap: 12px; border-radius: 6px; margin-bottom: 24px; }
 .critical-banner { border: 1px solid #efc1c4; border-left: 6px solid var(--red); background: #fff1f1; animation: pulseOnce .75s ease-out .25s 1; }
 .critical-banner > .icon { color: var(--red); flex: none; }.alert-copy { line-height: 1.55; flex: 1; }.alert-copy strong { color: var(--red); }
+.warning-banner { border: 1px solid #f5d9a0; border-left: 6px solid var(--amber); background: #fffaf0; }
+.warning-banner > .icon { color: var(--amber); flex: none; }
+.warning-banner .alert-copy strong { color: var(--amber); }
 .alert-actions { display: flex; align-items: center; gap: 8px; flex: none; }.alert-actions button { background: var(--crimson); color: white; border-radius: 5px; padding: 8px 12px; font-weight: 700; font-size: 11px; }
 .alert-actions button.secondary { color: var(--crimson); background: white; border: 1px solid var(--crimson); }
 .info-banner { background: #edf5fa; border: 1px solid #c5dce9; border-left: 6px solid #4d829e; color: #31596f; }

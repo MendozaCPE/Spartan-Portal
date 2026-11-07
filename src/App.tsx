@@ -322,14 +322,14 @@ const lateClasses = [
   {
     code: "IT 330-A",
     days: 5,
-    faculty: "F-017",
+    faculty: "F-012",
     deadline: "May 22, 2026",
     submitted: "May 27, 2026",
   },
   {
     code: "IT 410-A",
     days: 4,
-    faculty: "F-026",
+    faculty: "F-033",
     deadline: "May 22, 2026",
     submitted: "May 26, 2026",
   },
@@ -375,7 +375,7 @@ const facultyOverview = [
     sections: 3,
     rating: 4.3,
     response: 96,
-    pass: 90,
+    pass: 83,
     flag: "None",
     section: "IT 205-A",
   },
@@ -411,7 +411,7 @@ const facultyOverview = [
     sections: 3,
     rating: 4.1,
     response: 97,
-    pass: 86,
+    pass: 83,
     flag: "Grades 9 days late",
     section: "IT 204-A",
   },
@@ -438,7 +438,7 @@ const facultyOverview = [
     sections: 2,
     rating: 4.2,
     response: 98,
-    pass: 88,
+    pass: 82,
     flag: "None",
     section: "IT 220-A",
   },
@@ -670,6 +670,24 @@ function getData(year: string, semester: string, campus: string): TermData {
       }))
     : makeKpis([...source.values], [...source.prior], campusOnly)
 
+  // Ensure campus values match counts - Part B requirement 6
+  if (!pending && campusOnly && kpis[0].value !== null) {
+    // For ARASOF-Nasugbu: 1,369 grades, 238 students, 29 classes, 29 sections
+    // KPI 1 should be 86.3% (1,182 of 1,369)
+    // KPI 3 should be 82.8% (24 of 29)
+    kpis[0].value = 86.3
+    kpis[0].display = "86.3%"
+    kpis[0].support = "1,182 of 1,369 grades passed"
+    
+    kpis[2].value = 82.8
+    kpis[2].display = "82.8%"
+    kpis[2].support = "24 of 29 classes on time"
+    
+    // Update status based on actual values
+    kpis[0].status = kpis[0].value < 75 ? "Critical" : kpis[0].value < 85 ? "Warning" : "On target"
+    kpis[2].status = kpis[2].value < 85 ? "Critical" : kpis[2].value < 95 ? "Warning" : "On target"
+  }
+
   const endIndex = pending
     ? 4
     : year === "2024–2025"
@@ -734,6 +752,17 @@ function getData(year: string, semester: string, campus: string): TermData {
     value: Math.max(65, Math.min(98, Number(value) + subjectDelta)),
   }))
 
+  // Part B requirement 7: Number of dots must equal number of sections
+  const quadrantCounts: [number, number, number, number] = pending
+    ? [32, 8, 6, 4]
+    : campusOnly
+      ? [18, 5, 4, 2]  // Total 29 sections for ARASOF-Nasugbu
+      : [32, 8, 6, 4]  // Total 50 sections for All campuses
+
+  // Part B requirement 8: Compute sections needing review and subjects below target
+  const sectionsNeedReview = quadrantCounts[1] + quadrantCounts[2] + quadrantCounts[3]
+  const subjectsBelowTarget = subjects.filter(s => s.value < 85).length
+
   const attention = pending
     ? [
         {
@@ -778,31 +807,24 @@ function getData(year: string, semester: string, campus: string): TermData {
           },
         ]
 
+  // Part B requirement 11: Criterion averages must equal KPI 4 value
+  const kpi4Value = pending ? 4.21 : (kpis[3].value ?? 4.21)
+  const criterionBase = [4.40, 4.32, 4.25, 4.12, 3.96]
+  const criterionSum = criterionBase.reduce((a, b) => a + b, 0)
+  const criterionAvg = criterionSum / criterionBase.length
+  const criterionAdjustment = kpi4Value - criterionAvg
+  
   return {
     pending,
     kpis,
     timeline: allTimeline,
-    areas: [
-      { label: "Criterion 1", value: 4.40 },
-      { label: "Criterion 2", value: 4.32 },
-      { label: "Criterion 3", value: 4.25 },
-      { label: "Criterion 4", value: 4.12 },
-      { label: "Criterion 5", value: 3.96 },
-    ].map((d) => ({
-      ...d,
-      value: +(
-        d.value +
-        (campusOnly ? -0.04 : 0) +
-        (semester === "1st Semester" ? -0.08 : 0)
-      ).toFixed(2),
+    areas: criterionBase.map((d, i) => ({
+      label: `Criterion ${i + 1}`,
+      value: +(d + criterionAdjustment).toFixed(2),
     })),
     subjects,
     attention,
-    quadrantCounts: pending
-      ? [32, 8, 6, 4]
-      : kpis[4].value! >= 64
-        ? [32, 8, 6, 4]
-        : [30, 9, 7, 4],
+    quadrantCounts,
   }
 }
 
@@ -1654,7 +1676,8 @@ function KpiCard({
           event.stopPropagation()
           onDrill()
         }}
-        {...tip("See the subject, section or class behind this number.")}
+        disabled={kpi.value === null}
+        {...tip(kpi.value === null ? "Available after SETE closes and grades are submitted" : "See the subject, section or class behind this number.")}
       >
         {showLabels && kpi.id === 3 && (
           <span
@@ -1704,6 +1727,30 @@ function ChartA({
   const { tip, tipShow, tipHide, tipMove } = useTip()
   const [view, setView] = useState<"semester" | "area">("semester")
   const [hover, setHover] = useState<number | null>(null)
+  
+  // Part B requirement 12: Show pending message for pending state
+  if (data.pending) {
+    return (
+      <article className={`chart-card ${highlighted ? "section-highlighted" : ""}`}>
+        <div className="chart-head">
+          <div>
+            <div className="chart-labels">
+              <span className="eyebrow">Chart A</span>
+              <PurposeTag>Trend monitoring</PurposeTag>
+            </div>
+            <h3>Is teaching rated above target over time?</h3>
+          </div>
+          <span {...tip("Compare SETE results with the 4.0 target.")}>
+            <Icon name="info" size={17} />
+          </span>
+        </div>
+        <div className="chart-box" style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', minHeight: '250px', color: '#666' }}>
+          <p>Pending – available after SETE closes and grades are submitted.</p>
+        </div>
+      </article>
+    )
+  }
+  
   const chartWidth = 1280
   const chartHeight = 250
   const plotLeft = 58
@@ -1998,49 +2045,84 @@ function makeDots(counts: [number, number, number, number]) {
     flagged: boolean
     quadrant: string
   }[] = []
-  const groups = [
-    {
-      count: counts[0],
-      pass: [87, 97],
-      rate: [4.05, 4.7],
+  
+  // Quadrant 1: Meets both (32 sections in default, 18 in Nasugbu)
+  const quadrant1Count = counts[0]
+  for (let i = 0; i < quadrant1Count; i++) {
+    const baseIdx = i
+    dots.push({
+      code: sectionNames[baseIdx],
+      subject: subjectsShort[baseIdx % 5],
+      pass: 87 + ((baseIdx * 7) % 10),
+      rating: +(4.05 + ((baseIdx * 11) % 50) / 50 * 0.65).toFixed(2),
+      response: 72 + ((baseIdx * 7) % 27),
+      flagged: baseIdx % 11 === 0,
       quadrant: "Meets both",
-    },
-    {
-      count: counts[1],
-      pass: [72, 83],
-      rate: [4.05, 4.6],
-      quadrant: "High rating, low passing",
-    },
-    {
-      count: counts[2],
-      pass: [87, 96],
-      rate: [3.45, 3.92],
-      quadrant: "Low rating, high passing",
-    },
-    {
-      count: counts[3],
-      pass: [72, 83],
-      rate: [3.35, 3.9],
-      quadrant: "Both below target",
-    },
+    })
+  }
+  
+  // Quadrant 2: High rating, low passing (8 sections in default, 5 in Nasugbu)
+  // Must include IT 305-A and IT 204-A
+  const quadrant2Count = counts[1]
+  const q2Fixed = [
+    { code: "IT 305-A", subject: "Web Systems", pass: 78, rating: 4.5, response: 96, flagged: false },
+    { code: "IT 204-A", subject: "Database Systems", pass: 84, rating: 4.18, response: 94, flagged: false },
   ]
-  groups.forEach((g, gi) =>
-    Array.from({ length: g.count }).forEach((_, j) => {
-      const i = dots.length
+  for (let i = 0; i < quadrant2Count; i++) {
+    if (i < q2Fixed.length) {
+      dots.push({ ...q2Fixed[i], quadrant: "High rating, low passing" })
+    } else {
+      const baseIdx = quadrant1Count + i
       dots.push({
-        code: sectionNames[i],
-        subject: subjectsShort[i % 5],
-        pass: g.pass[0] + ((j * 7 + gi * 3) % (g.pass[1] - g.pass[0] + 1)),
-        rating: +(
-          g.rate[0] +
-          (((j * 11) % 50) / 50) * (g.rate[1] - g.rate[0])
-        ).toFixed(2),
-        response: 72 + ((i * 7) % 27),
-        flagged: i % 11 === 0 || i === 0,
-        quadrant: g.quadrant,
+        code: sectionNames[baseIdx],
+        subject: subjectsShort[baseIdx % 5],
+        pass: 72 + ((baseIdx * 7) % 12),
+        rating: +(4.05 + ((baseIdx * 11) % 50) / 50 * 0.55).toFixed(2),
+        response: 72 + ((baseIdx * 7) % 27),
+        flagged: baseIdx % 11 === 0,
+        quadrant: "High rating, low passing",
       })
-    }),
-  )
+    }
+  }
+  
+  // Quadrant 3: Low rating, high passing (6 sections in default, 4 in Nasugbu)
+  const quadrant3Count = counts[2]
+  for (let i = 0; i < quadrant3Count; i++) {
+    const baseIdx = quadrant1Count + quadrant2Count + i
+    dots.push({
+      code: sectionNames[baseIdx],
+      subject: subjectsShort[baseIdx % 5],
+      pass: 87 + ((baseIdx * 7) % 9),
+      rating: +(3.45 + ((baseIdx * 11) % 50) / 50 * 0.47).toFixed(2),
+      response: 72 + ((baseIdx * 7) % 27),
+      flagged: baseIdx % 11 === 0,
+      quadrant: "Low rating, high passing",
+    })
+  }
+  
+  // Quadrant 4: Both below target (4 sections in default, 2 in Nasugbu)
+  // Must include IT 312-B
+  const quadrant4Count = counts[3]
+  const q4Fixed = [
+    { code: "IT 312-B", subject: "Data Structures", pass: 74, rating: 3.92, response: 91, flagged: false },
+  ]
+  for (let i = 0; i < quadrant4Count; i++) {
+    if (i < q4Fixed.length) {
+      dots.push({ ...q4Fixed[i], quadrant: "Both below target" })
+    } else {
+      const baseIdx = quadrant1Count + quadrant2Count + quadrant3Count + i
+      dots.push({
+        code: sectionNames[baseIdx],
+        subject: subjectsShort[baseIdx % 5],
+        pass: 72 + ((baseIdx * 7) % 11),
+        rating: +(3.35 + ((baseIdx * 11) % 50) / 50 * 0.55).toFixed(2),
+        response: 72 + ((baseIdx * 7) % 27),
+        flagged: baseIdx % 11 === 0,
+        quadrant: "Both below target",
+      })
+    }
+  }
+  
   return dots
 }
 
@@ -2059,6 +2141,31 @@ function ChartB({
     () => makeDots(data.quadrantCounts),
     [data.quadrantCounts],
   )
+  const sectionsNeedReview = data.quadrantCounts[1] + data.quadrantCounts[2] + data.quadrantCounts[3]
+  
+  // Part B requirement 12: Show pending message for pending state
+  if (data.pending) {
+    return (
+      <article className={`chart-card ${highlighted ? "section-highlighted" : ""}`}>
+        <div className="chart-head">
+          <div>
+            <div className="chart-labels">
+              <span className="eyebrow">Chart B</span>
+              <PurposeTag>Comparative analysis</PurposeTag>
+            </div>
+            <h3>Do ratings and results agree?</h3>
+          </div>
+          <span {...tip("Each dot is one class section.")}>
+            <Icon name="info" size={17} />
+          </span>
+        </div>
+        <div className="scatter" style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', minHeight: '400px', color: '#666' }}>
+          <p>Pending – available after SETE closes and grades are submitted.</p>
+        </div>
+      </article>
+    )
+  }
+  
   return (
     <article className={`chart-card ${highlighted ? "section-highlighted" : ""}`}>
       <div className="chart-head">
@@ -2069,7 +2176,7 @@ function ChartB({
           </div>
           <h3>Do ratings and results agree?</h3>
           <p className="so-what">
-            So what? 18 sections need review because ratings and outcomes differ
+            So what? {sectionsNeedReview} sections need review because ratings and outcomes differ
             or both miss target.
           </p>
         </div>
@@ -2194,6 +2301,33 @@ function ChartC({
 }) {
   const { tip, tipShow, tipHide, tipMove } = useTip()
   const [hover, setHover] = useState<number | null>(null)
+  
+  // Part B requirement 12: Show pending message for pending state
+  if (data.pending) {
+    return (
+      <article className={`chart-card ${highlighted ? "section-highlighted" : ""}`}>
+        <div className="chart-head">
+          <div>
+            <div className="chart-labels">
+              <span className="eyebrow">Chart C</span>
+              <PurposeTag>Comparative analysis</PurposeTag>
+            </div>
+            <h3>Which subjects fall below the passing target?</h3>
+          </div>
+          <span {...tip("Subjects are sorted from lowest passing rate.")}>
+            <Icon name="info" size={17} />
+          </span>
+        </div>
+        <div className="subject-chart" style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', minHeight: '300px', color: '#666' }}>
+          <p>Pending – available after SETE closes and grades are submitted.</p>
+        </div>
+      </article>
+    )
+  }
+  
+  // Part B requirement 8: Compute subjects below target dynamically
+  const subjectsBelowTarget = data.subjects.filter(s => s.value < 85).length
+  
   return (
     <article className={`chart-card ${highlighted ? "section-highlighted" : ""}`}>
       <div className="chart-head">
@@ -2204,8 +2338,11 @@ function ChartC({
           </div>
           <h3>Which subjects fall below the passing target?</h3>
           <p className="so-what">
-            So what? Three subjects are below target; Data Structures needs
-            urgent academic support.
+            So what? {subjectsBelowTarget === 0 
+              ? "All subjects meet the passing target."
+              : subjectsBelowTarget === 1
+                ? "One subject is below target and needs urgent academic support."
+                : `${subjectsBelowTarget} subjects are below target; Data Structures needs urgent academic support.`}
           </p>
         </div>
         <span {...tip("Subjects are sorted from lowest passing rate.")}>
@@ -2311,12 +2448,17 @@ function AlertBanner({
   const late = grade.support.includes("29")
     ? 5
     : Math.round(50 * (1 - grade.value! / 100))
+  
+  // Part B requirement 9: Alert label and color follow KPI 3 status
+  const bannerClass = grade.status === "Critical" ? "critical-banner" : "warning-banner"
+  const statusLabel = grade.status === "Critical" ? "Critical" : "Warning"
+  
   return (
-    <div className="alert-banner critical-banner">
+    <div className={`alert-banner ${bannerClass}`}>
       <Icon name="alert" size={23} />
       <div className="alert-copy">
         <PurposeTag>Problem identification</PurposeTag>
-        <strong>Critical · KPI 3</strong> On-Time Grade Submission is{" "}
+        <strong>{statusLabel} · KPI 3</strong> On-Time Grade Submission is{" "}
         {grade.value!.toFixed(1)}% (target 95%). {late} of{" "}
         {grade.support.includes("29") ? 29 : 50} classes submitted grades late.
         Faculty receive SETE results only after submitting grades, so these
@@ -2359,6 +2501,20 @@ function AttentionTable({
       return next
     })
   }
+  
+  // Part B requirement 10: Show footer only when there are more late classes
+  const lateClassesInAttention = data.attention.filter(a => 
+    a.kpi === "KPI 3" && a.detail.includes("late")
+  ).length
+  
+  // Count total late classes from KPI 3 support text
+  const kpi3 = data.kpis[2]
+  const supportMatch = kpi3.support.match(/(\d+) of (\d+)/)
+  const onTime = supportMatch ? Number(supportMatch[1]) : 41
+  const classTotal = supportMatch ? Number(supportMatch[2]) : 50
+  const totalLateClasses = Math.max(0, classTotal - onTime)
+  const moreLateClasses = totalLateClasses - lateClassesInAttention
+  
   return (
     <section className={`attention-section ${highlighted ? "section-highlighted" : ""}`} ref={tableRef}>
       <div className="section-title">
@@ -2457,9 +2613,11 @@ function AttentionTable({
           </div>
         ))}
       </div>
-      <p className="attention-footer">
-        Showing the most urgent items. 7 more late classes are in the KPI 3 drill-down.
-      </p>
+      {moreLateClasses > 0 && (
+        <p className="attention-footer">
+          Showing the most urgent items. {moreLateClasses} more late {moreLateClasses === 1 ? "class is" : "classes are"} in the KPI 3 drill-down.
+        </p>
+      )}
     </section>
   )
 }
@@ -2492,12 +2650,36 @@ function FacultyRecognitionOverview({
   onDrill,
   staticMode,
   highlighted,
+  pending,
 }: {
   onDrill: (kpi: number, path?: string[]) => void
   staticMode?: boolean
   highlighted?: boolean
+  pending?: boolean
 }) {
   const { tip } = useTip()
+  
+  // Part B requirement 12: Show pending message for pending state
+  if (pending) {
+    return (
+      <section className={`faculty-recognition-card ${highlighted ? "section-highlighted" : ""}`}>
+        <div className="faculty-recognition-main-head">
+          <div>
+            <div className="tag-group">
+              <PurposeTag>Decision support</PurposeTag>
+              <PurposeTag>Comparative analysis</PurposeTag>
+            </div>
+            <h2>Faculty & Recognition Overview</h2>
+          </div>
+          <Icon name="bars" size={21} />
+        </div>
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', minHeight: '200px', color: '#666', padding: '40px' }}>
+          <p>Pending – available after SETE closes and grades are submitted.</p>
+        </div>
+      </section>
+    )
+  }
+  
   return (
     <section className={`faculty-recognition-card ${highlighted ? "section-highlighted" : ""}`}>
       <div className="faculty-recognition-main-head">
@@ -3305,7 +3487,7 @@ function Dashboard({
             <section className="charts-grid" style={{ position: "relative" }}>
               <div className="chart-a-wrap" style={{ position: "relative", gridColumn: "1 / -1" }}>
                 {showLabels && <span className={`tour-section-badge ${activeLabelIndex === 7 ? "badge-active" : ""}`} style={{ top: -10, left: -10 }}>8</span>}
-                <ChartA data={data} onDrill={openDrill} highlighted={activeLabelIndex === 7} />
+                <ChartA data={data} onDrill={openDrill} staticMode={data.pending} highlighted={activeLabelIndex === 7} />
               </div>
               <div className="chart-b-wrap" style={{ position: "relative" }}>
                 {showLabels && <span className={`tour-section-badge ${activeLabelIndex === 9 ? "badge-active" : ""}`} style={{ top: -10, left: -10 }}>10</span>}
@@ -3318,7 +3500,7 @@ function Dashboard({
             </section>
             <div className="faculty-recognition-wrap" style={{ position: "relative" }}>
               {showLabels && <span className={`tour-section-badge ${activeLabelIndex === 8 ? "badge-active" : ""}`} style={{ top: -10, left: -10 }}>9</span>}
-              <FacultyRecognitionOverview onDrill={openDrill} highlighted={activeLabelIndex === 8} />
+              <FacultyRecognitionOverview onDrill={openDrill} staticMode={data.pending} pending={data.pending} highlighted={activeLabelIndex === 8} />
             </div>
           </div>
           <div style={{ position: "relative" }}>
